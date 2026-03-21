@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Resume - {{ (profile.name or "Candidate") }}</title>
+</head>
+
+<body>
+  <div class ="page">
+    {# Always first #}
+    {% include "header.html" %}
+
+    {% for section in sections %}
+      {% if section and (section.text or section.label) %}
+        {% include "section.html" %}
+      {% endif %}
+    {% endfor %}  </div>
+</body>
+</html>

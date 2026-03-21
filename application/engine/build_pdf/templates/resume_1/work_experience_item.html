@@ -1,0 +1,28 @@
+{# Work item:
+   - header: list[str] (1+ lines)
+   - accountabilities: list[str] (0+ lines)
+   Render header lines, then bullets for accountabilities.
+#}
+
+<div class="item">
+  {% set hdr = (w.header if w and w.header else []) %}
+  {% set acc = (w.accountabilities if w and w.accountabilities else []) %}
+
+  {% if hdr and hdr|length > 0 %}
+    <div class="item-header">{{ hdr[0] }}</div>
+    {% if hdr|length > 1 %}
+      <div class="item-subheader">{{ hdr[1:] | join(" · ") }}</div>
+    {% endif %}
+  {% endif %}
+
+  {% if acc and acc|length > 0 %}
+    <ul class="bullets work_experience">
+      {% for a in acc %}
+        {% set t = a.strip() %}
+        {% if t %}
+          <li>{{ t }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>

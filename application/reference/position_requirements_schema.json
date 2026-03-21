@@ -1,0 +1,25 @@
+{
+  "job_id": null,
+  "title": null,
+  "generic_title": null,
+  "location": null,
+
+  "requirements": {
+    "education": {
+      "credential": null,
+      "level": null,
+      "field": null
+    },
+    "experience": {
+      "years_min": null
+    },
+    "vendors": [],
+    "tech": [],
+    "other_skills": [],
+    "certifications": [],
+    "tools":[]
+  },
+  "raw": {
+    "job_lines": []
+  }
+}

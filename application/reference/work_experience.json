@@ -1,0 +1,12 @@
+{
+  "date": {
+    "months": ["jan","feb","mar","apr","may","jun","jul","aug","sep","sept","oct","nov","dec"],
+    "present": ["present","current"],
+    "separators": ["-","–","to"],
+    "regex": [
+      "\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\b\\s*\\d{4}\\s*(?:-|–|to)\\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\b\\s*\\d{4}|\\d{4}|present|current)",
+      "\\b\\d{4}\\s*(?:-|–|to)\\s*(?:\\d{4}|present|current)\\b"
+    ]
+  },
+  "dates_scan_accountabilities_lines": 2
+}

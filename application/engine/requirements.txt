@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+scikit-learn
+pydantic
+rank-bm25
+requests
+pymupdf
+sentence-transformers
+jinja2
+xhtml2pdf
+gender-guesser
+geonamescache
+python-multipart

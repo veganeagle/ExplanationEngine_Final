@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/static/styles.css">
+    <title>Explanation Engine Tester</title>
+
+</head>
+<body>
+    <h1 class="page-title">Job Applicant Explanation Engine</h1>
+    <div class="page-header">
+        <h2>Candidate Management</h2>
+        <button type="button" onclick="location.href='/'">To Jobs</button>
+    </div>
+
+    <h3>Current Candidates</h3>
+    <div class="small">Loaded from GET /candidates</div>
+    <div class="table-scroll">
+        <table id="candidates_table">
+            <thead>
+                <tr>
+                    <th>candidate_id</th>
+                    <th>name</th>
+                </tr>
+            </thead>
+            <tbody id="candidates_tbody"></tbody>
+        </table>
+    </div>
+    <hr>
+    <div class="card card-pad">
+        <h3>Add Candidates</h3>
+        <input id="candidate_files" type="file" accept=".pdf,application/pdf" multiple />
+        <div style="margin-top:12px;">
+            <button type="button" onclick="uploadCandidates()">Upload PDF(s)</button>
+        </div>
+        <pre id="output" class="is-hidden"></pre>
+    </div>
+</body>
+<script>
+
+function esc(s) {
+    s = (s ?? "").toString();
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+async function loadCandidates() {
+    const res = await fetch("/candidates");
+    const obj = await res.json();
+    const tbody = document.getElementById("candidates_tbody");
+    tbody.innerHTML = "";
+    const candidates = (obj && obj.candidates) ? obj.candidates : [];
+    for (const c of candidates) {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+            "<td>" + esc(c.candidate_id) + "</td>" +
+            "<td>" + esc(c.candidate_name) + "</td>";
+        tbody.appendChild(tr);
+    }
+}
+
+async function uploadCandidates() {
+    const input = document.getElementById("candidate_files");
+    const files = input.files;
+    if (!files || !files.length) { alert("please select at least one PDF"); return; }
+    const formData = new FormData();
+    for (const file of files) formData.append("files", file);
+    try {
+        const res = await fetch("/candidates/upload", {
+            method: "POST",
+            body: formData});
+        if (!res.ok) throw new Error(`/candidates/upload -> ${res.status}`);
+        const obj = await res.json();
+        document.getElementById("output").textContent = JSON.stringify(obj, null, 2);
+        await loadCandidates();
+        input.value = "";
+    } catch (err) {
+        setStatus(`Upload failed: ${err.message || err}`, "danger");
+        throw err;
+    }
+}
+
+window.addEventListener("load", loadCandidates);
+</script>
+</body>
+</html>

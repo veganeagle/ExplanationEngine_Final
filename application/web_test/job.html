@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Job State</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <h1 class="page-title">Job Applicant Explanation Engine</h1>
+
+  <div class="page-header">
+    <h3 id="jobSummary"></h3>
+    <button type="button" onclick="location.href='/'">← Back to Jobs</button>
+  </div>
+  <div class="page-header">
+    <h3>Summary</h3>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button type="button" onclick="openAttachDialog()">Attach Candidates</button>
+        <dialog id="attachDialog">
+          <form method="dialog">
+            <h3>Attach Existing Candidates</h3>
+            <div id="candidate_list"></div>
+            <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+              <button value="cancel" type="submit">Cancel</button>
+              <button type="button" onclick="attachCandidates()">Attach Selected Candidates</button>
+            </div>
+          </form>
+        </dialog>
+      <button type="button" onclick="openUploadAttachDialog()">Attach From File</button>
+      <dialog id="uploadAttachDialog">
+        <form method="dialog">
+          <h3>Upload and Attach Candidate PDFs</h3>
+          <input id="candidate_upload_files" type="file" accept=".pdf,application/pdf" multiple>
+          <div class="small" style="margin-top:8px;">
+            Selected PDFs will be uploaded to the candidate library and attached to this job.
+            Existing candidates are deduped automatically.
+          </div>
+          <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+            <button value="cancel" type="submit">Cancel</button>
+            <button type="button" onclick="uploadAndAttachCandidates()">Upload and Attach</button>
+          </div>
+        </form>
+      </dialog>
+      <button type="button" onclick="runBaseline()">Run Baseline</button>
+      <button type="button" onclick="changeParams()">Experiment Parameters</button>
+      <button type="button" onclick="runExperiment()">Run Experiment</button>
+      <button type="button" onclick="exportCsv()">Export CSV</button>
+    </div>
+  </div>
+
+  <div id="summary">Loading…</div>
+
+  <hr>
+
+  <details>
+    <summary class="small">Debug view</summary>
+    <div id="panes" style="margin-top:12px;">
+      <div>
+        <h3>JobState</h3>
+        <pre id="out">Loading…</pre>
+      </div>
+
+      <div>
+        <h3>Requirements</h3>
+        <pre id="reqOut">Loading…</pre>
+      </div>
+    </div>
+  </details>
+
+<script>
+  const out = document.getElementById("out");
+  const reqOut = document.getElementById("reqOut");
+  const jobId = new URLSearchParams(location.search).get("job_id");
+  const attachDialog = document.getElementById("attachDialog");
+  const uploadAttachDialog = document.getElementById("uploadAttachDialog");
+
+  function esc(s) {
+    s = (s ?? "").toString();
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  function fmtNum(x, digits = 1) { return Number.isFinite(x) ? Number(x).toFixed(digits) : "";}
+  function openAttachDialog() { attachDialog.showModal();}
+  function openUploadAttachDialog() { uploadAttachDialog.showModal(); }
+  function csvCell(value) {const s = (value ?? "").toString().replace(/"/g, '""');
+    return `"${s}"`;}
+
+  function downloadCsv(filename, rows) {
+    const csv = rows.map(row => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function loadJob() {
+    out.textContent = "Loading JobState…";
+    reqOut.textContent = "Loading Requirements…";
+    const jobUrl = `/jobs/${encodeURIComponent(jobId)}`;
+    const reqUrl = `/jobs/${encodeURIComponent(jobId)}/requirements`;
+    const [jobResp, reqResp] = await Promise.all([fetch(jobUrl), fetch(reqUrl)]);
+    const jobJson = await jobResp.json();
+    window.jobState = jobJson;
+    const job = jobJson.job || {};
+    const status = jobJson.status || "";
+    const nCands = (jobJson.candidate_ids || []).length;
+    const title = job.description || job.job_id || "";
+    document.getElementById("jobSummary").innerHTML =
+      `<b>${esc(title)}</b><br>` +
+      `status: ${esc(status)}<br>` +
+      `candidates: ${nCands}`;
+    let reqJson = null;
+    if (reqResp.ok) { reqJson = await reqResp.json();
+    } else { reqJson = { error: `HTTP ${reqResp.status}`, url: reqUrl };}
+    out.textContent = JSON.stringify(jobJson, null, 2);
+    reqOut.textContent = reqJson === null ? "null" : JSON.stringify(reqJson, null, 2);
+  }
+
+  async function loadCandidates() {
+    const r = await fetch("/candidates");
+    const obj = await r.json();
+    const candidates = (obj && obj.candidates) ? obj.candidates : [];
+    const attachedIds = new Set((window.jobState && window.jobState.candidate_ids) ? window.jobState.candidate_ids : []);
+    const container = document.getElementById("candidate_list");
+    container.innerHTML = "";
+    for (const c of candidates) {
+      if (!c.candidate_id) continue;
+      if (attachedIds.has(c.candidate_id)) continue;
+      const row = document.createElement("div");
+      row.innerHTML = `
+        <label>
+          <input type="checkbox" value="${esc(c.candidate_id)}">
+          <span>${esc(c.candidate_id)}</span>
+        </label>`;
+      container.appendChild(row);
+    }
+    if (!container.innerHTML.trim()) {container.innerHTML = `<div class="small">No candidates available.</div>`;}
+  }
+
+  async function attachCandidates() {
+    const checked = Array.from(document.querySelectorAll("#candidate_list input:checked"));
+    const candidateIds = checked.map(x => x.value);
+    if (!candidateIds.length) {alert("Select at least one candidate");
+      return;}
+    await fetch(`/jobs/${encodeURIComponent(jobId)}/candidates`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidate_ids: candidateIds })
+    });
+    await loadJob();
+    await loadSummary();
+    await loadCandidates();
+    attachDialog.close();
+  }
+
+  async function uploadAndAttachCandidates() {
+    const input = document.getElementById("candidate_upload_files");
+    const files = Array.from(input.files || []);
+    if (!files.length) return alert("Select at least one PDF");
+    const form = new FormData();
+    files.forEach(f => form.append("files", f));
+    const candidate_ids = files
+      .map(f => (f.name || "").replace(/.*[\\/]/, "").replace(/\.pdf$/i, ""))
+      .filter(Boolean);
+    try {
+      let r = await fetch("/candidates/upload", { method: "POST", body: form });
+      if (!r.ok) throw new Error(`/candidates/upload -> ${r.status}`);
+      r = await fetch(`/jobs/${encodeURIComponent(jobId)}/candidates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidate_ids })
+      });
+      if (!r.ok) throw new Error(`/jobs/${encodeURIComponent(jobId)}/candidates -> ${r.status}`);
+      input.value = "";
+      await loadJob();
+      await loadCandidates();
+      await loadSummary();
+      uploadAttachDialog.close();
+    } catch (err) {
+      alert(`Upload/attach failed: ${err.message || err}`);
+      throw err;
+    }
+  }
+
+  
+  function renderExplanationsTable(title, records) {
+    let html = `<h4>${esc(title)}</h4>`;
+    html += `<div class="table-scroll">`;
+    html += `<table>
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th class="text-right">Baseline norm</th>
+          <th class="text-right">Baseline rank</th>
+          <th class="text-right">Validation Δ</th>
+          <th>Top reason</th>
+          <th class="text-right">Top factor norm</th>
+          <th class="text-right">Top factor rank</th>
+          <th>Combined</th>
+          <th class="text-right">Combined norm</th>
+          <th class="text-right">Combined rank</th>
+        </tr>
+      </thead>
+      <tbody>`;
+    const rows = (records || []).slice().sort( (a, b) => (a.baseline_rank ?? 999999) - (b.baseline_rank ?? 999999) );
+    for (const rec of rows) {
+      const cid = rec.candidate_id || "";
+      const bNorm = rec.baseline_norm == null ? null : Number(rec.baseline_norm);
+      const bRank = rec.baseline_rank == null ? null : Number(rec.baseline_rank);
+      const validationDelta = rec.validation_delta_norm == null ? null : Number(rec.validation_delta_norm);
+      const factors = rec.factors || [];
+      const isValidation = f => {
+        const id = String(f.case_id || "");
+        const type = String(f.case_type || "");
+        return id === "0_validate" || id === "0_validation" || type === "validate" || type === "validation";
+      };
+      const isCombined = f => {
+        const id = String(f.case_id || "");
+        const type = String(f.case_type || "");
+        return id === "combined" || id.endsWith("_combined") || type === "combined";
+      };
+      const atomic = factors.filter(f => !isValidation(f) && !isCombined(f));
+      const combined = factors.find(isCombined) || null;
+      const topF = atomic.length ? atomic[0] : null;
+      const topReason = topF ? (topF.full_reason || topF.short_reason || topF.case_type || "") : "—";
+      const topNorm = (topF && bNorm != null) ? (bNorm + Number(topF.delta_norm)) : NaN;
+      const combNorm = (combined && bNorm != null) ? (bNorm + Number(combined.delta_norm)) : NaN;
+      const topRank = (topF && bRank != null) ? (bRank - Number(topF.delta_rank)) : NaN;
+      const combRank = (combined && bRank != null) ? (bRank - Number(combined.delta_rank)) : NaN;
+      const factorCount = atomic.length;
+      const combinedText = combined ? `${factorCount} factor${factorCount === 1 ? "" : "s"}` : "—";
+      html += `<tr>
+        <td>
+          <button type="button" onclick="location.href='/candidate_results.html?job_id=${encodeURIComponent(jobId)}&candidate_id=${encodeURIComponent(cid)}&ranker=${encodeURIComponent(rec.ranker || "")}'">
+            ${esc(cid)}
+          </button>
+        </td>
+        <td class="text-right">${fmtNum(bNorm, 1)}</td>
+        <td class="text-right">${Number.isFinite(bRank) ? bRank : ""}</td>
+        <td class="text-right">${Number.isFinite(validationDelta) ? (validationDelta > 0 ? "+" : "") + validationDelta.toFixed(1) : ""}</td>
+        <td>${esc(topReason)}</td>
+        <td class="text-right">${fmtNum(topNorm, 1)}</td>
+        <td class="text-right">${Number.isFinite(topRank) ? topRank : ""}</td>
+        <td>${esc(combinedText)}</td>
+        <td class="text-right">${fmtNum(combNorm, 1)}</td>
+        <td class="text-right">${Number.isFinite(combRank) ? combRank : ""}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+    return html;
+  }
+
+  async function loadSummary() {
+    const host = document.getElementById("summary");
+    const r = await fetch(`/jobs/${encodeURIComponent(jobId)}/summary`);
+    if (!r.ok) {host.textContent = "No summary available";
+      return;}
+
+    const data = await r.json();
+    const ui = data.ui || {};
+    const models = ui.model_list || [];
+    const modelTables = ui.model_tables || {};
+    const attachedIds = (window.jobState && window.jobState.candidate_ids) ? window.jobState.candidate_ids : [];
+    if (!models.length) { host.textContent = "Please attach candidates and run baseline";
+      return;}
+
+    let expRecords = [];
+    const expResp = await fetch(`/jobs/${encodeURIComponent(jobId)}/explanations`);
+    if (expResp.ok) {  const expData = await expResp.json();
+      expRecords = expData.explanations || [];}
+    const expMap = {};
+    for (const rec of expRecords) {  expMap[`${rec.ranker}|||${rec.candidate_id}`] = rec;}
+    let allHtml = "";
+    for (const ranker of models) {
+      const table = modelTables[ranker] || {};
+      const sourceRows = table.rows || [];
+      const rows = sourceRows.map(row => {
+        const key = `${ranker}|||${row.candidate_id || ""}`;
+        const expRec = expMap[key] || null;
+        const factors = expRec ? (expRec.factors || []) : [];
+        const validationFactor = factors.find(f => {
+          const id = String(f.case_id || "");
+          const type = String(f.case_type || "");
+          return id === "0_validate" || id === "0_validation" || type === "validate" || type === "validation";
+        }) || null;
+        return {
+          candidate_id: row.candidate_id || "",
+          ranker,
+          baseline_norm: row.baseline_norm,
+          baseline_rank: row.baseline_rank,
+          validation_delta_norm:
+            row["0_validate_delta_norm"] ??
+            row["0_validation_delta_norm"] ??
+            (validationFactor ? validationFactor.delta_norm : null),
+          factors
+        };
+      });
+
+      const seen = new Set(rows.map(x => x.candidate_id));
+      for (const candidateId of attachedIds) {
+        if (seen.has(candidateId)) continue;
+        rows.push({candidate_id: candidateId, ranker, baseline_norm: null,
+          baseline_rank: null, validation_delta_norm: null, factors: []});
+      }
+      allHtml += `<h3>${esc(ranker || "Results")}</h3>`;
+      allHtml += renderExplanationsTable("Results", rows);
+    }
+    host.innerHTML = allHtml || "Please attach candidates and run baseline";
+  }
+
+  async function runBaseline() {
+    out.textContent = "Running baseline…";
+    await fetch(`/jobs/${encodeURIComponent(jobId)}/baseline/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({})
+    });
+    await loadJob();
+    await loadSummary();
+  }
+
+  async function runExperiment() {
+    out.textContent = "Running experiment…";
+    await fetch(`/jobs/${encodeURIComponent(jobId)}/experiments/run`, {
+      method: "POST"
+    });
+    await loadJob();
+    await loadSummary();
+  }
+
+  async function changeParams() {
+    const pr = await fetch(`/jobs/${encodeURIComponent(jobId)}/params`);
+    const pj = await pr.json();
+    const cur = pj.params || {};
+    const allowed = pj.rankers || [];
+    const curRankers = cur.rankers || [];
+    const curIters = cur.num_iterations ?? 12;
+    const dlg = document.createElement("dialog");
+    dlg.innerHTML = `
+      <form method="dialog">
+        <h3>Experiment Parameters</h3>
+        <div>
+          <b>Rankers</b>
+          ${allowed.map(r => `
+            <label>
+              <input type="checkbox" name="ranker" value="${esc(r)}" ${curRankers.includes(r) ? "checked" : ""}>
+              <span>${esc(r)}</span>
+            </label>
+          `).join("")}
+        </div>
+        <div style="margin-top:12px;">
+          <label for="iters"><b>Iterations (5–30)</b></label>
+          <input type="number" id="iters" min="5" max="30" value="${curIters}">
+        </div>
+        <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+          <button value="cancel">Cancel</button>
+          <button value="ok">Save</button>
+        </div>
+      </form>
+    `;
+    document.body.appendChild(dlg);
+    dlg.showModal();
+    dlg.addEventListener("close", async () => {
+      if (dlg.returnValue !== "ok") { dlg.remove();
+        return; }
+      const rankers = [...dlg.querySelectorAll("input[name='ranker']:checked")].map(x => x.value);
+      const iters = parseInt(dlg.querySelector("#iters").value, 10);
+      if (!rankers.length) {
+        alert("Select at least one ranker");
+        dlg.remove();
+        return;
+      }
+      if (!Number.isFinite(iters) || iters < 5 || iters > 30) {
+        alert("Iterations must be 5–30");
+        dlg.remove();
+        return;
+      }
+      await fetch(`/jobs/${encodeURIComponent(jobId)}/params`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ params: { rankers, num_iterations: iters } })
+      });
+      const baselineRankers = (window.jobState?.baseline?.rankers) || [];
+      const needsBaseline = baselineRankers.length && rankers.some(r => !baselineRankers.includes(r));
+      if (needsBaseline) {  await runBaseline();}
+      await loadJob();
+      await loadSummary();
+      dlg.remove();
+    });
+  }
+
+
+  async function buildSummaryCsvRows() {
+    const r = await fetch(`/jobs/${encodeURIComponent(jobId)}/summary`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const ui = data.ui;
+    if (!ui || !ui.model_list || !ui.model_list.length) return null;
+    const models = ui.model_list || [];
+    const cases = ui.case_ids || [];
+    const rows = [["ranker", "candidate_id", "baseline_norm", ...cases.map(c => `${c}_delta_norm`)]];
+    for (const model of models) {
+      const table = (ui.model_tables || {})[model];
+      if (!table || !table.rows) continue;
+      const sorted = table.rows.slice().sort(
+        (a, b) => (a.baseline_rank ?? 999999) - (b.baseline_rank ?? 999999));
+      for (const row of sorted) {
+        rows.push([model, row.candidate_id || "", row.baseline_norm ?? "", ...cases.map(caseId => row[`${caseId}_delta_norm`] ?? "")
+        ]);
+      }
+    }
+    return rows.length > 1 ? rows : null;
+  }
+
+  function buildExperimentOnlyCsvRows(state) {
+    const exps = (state && state.experiments) ? state.experiments : [];
+    if (!exps.length) return null;
+    const rows = [["subject_candidate_id", "ranker", "case_id", "norm_score", "rank"]];
+    for (const exp of exps) {
+      const subject = exp.subject_candidate_id || "";
+      const expRows = exp.rows || [];
+      for (const row of expRows) {
+        rows.push([subject, row.ranker || "", row.case_id || "", row.norm_score ?? "", row.rank ?? ""
+        ]);
+      }
+    }
+    return rows.length > 1 ? rows : null;
+  }
+
+  async function exportCsv() {
+    const filenameBase = `job_${jobId || "export"}`;
+    let rows = await buildSummaryCsvRows();
+    if (rows && rows.length > 1) {
+      downloadCsv(`${filenameBase}_summary.csv`, rows);
+      return;}
+    rows = buildExperimentOnlyCsvRows(window.jobState);
+    if (rows && rows.length > 1) {
+      downloadCsv(`${filenameBase}_experiments.csv`, rows);
+      return;}
+    alert("No exportable data available yet.");
+  }
+
+  (async () => {
+    await loadJob();
+    await loadCandidates();
+    await loadSummary();
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/static/styles.css">
+    <title>Explanation Engine </title>
+</head>
+<body>
+<h1 class="page-title">Job Applicant Explanation Engine</h1>
+<div class="page-header">
+    <h2>Job Management</h2>
+    <button type="button" onclick="location.href='/candidates.html'">To Candidates</button>
+</div>
+<div id="statusBanner" class="card card-pad small is-hidden"></div>
+
+<h3>Current Jobs</h3>
+<div class="small">Loaded from GET /jobs</div>
+<table id="jobs_table">
+    <thead>
+        <tr>
+            <th>job_id</th>
+            <th>description</th>
+            <th class="text-right">applicants</th>
+            <th>status</th>
+            <th>params</th>
+            <th>open record</th>
+        </tr>
+    </thead>
+    <tbody id="jobs_tbody"></tbody>
+</table>
+
+<hr style="width:90%; margin: 20px 0;">
+<div class="card card-pad">
+    <h3>Upload Job PDF</h3>
+
+    <input id="job_file" type="file" accept=".pdf,application/pdf" />
+
+    <div style="margin-top:12px;">
+        <label for="description">Description (optional)</label>
+        <input id="description" placeholder="text description">
+    </div>
+
+    <div style="margin-top:12px;">
+        <button type="button" onclick="uploadJob()">Upload Job PDF</button>
+    </div>
+
+    <pre id="output" class="is-hidden"></pre>
+</div>
+
+<script>
+function esc(s) {
+    s = (s ?? "").toString();
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+function setStatus(msg, tone = "muted") {
+    const el = document.getElementById("statusBanner");
+    if (!msg) {
+        el.textContent = "";
+        el.classList.add("is-hidden");
+        return;
+    }
+    el.textContent = msg;
+    el.className = `card card-pad small ${tone}`;
+}
+
+function fmtParams(params) {
+    if (!params) return "—";
+    const rankers = Array.isArray(params.rankers) && params.rankers.length
+        ? params.rankers.join(", ")
+        : "—";
+    const iters = params.num_iterations ?? "—";
+    return `rankers: ${rankers}; iterations: ${iters}`;
+}
+
+async function fetchJobState(jobId) {
+    const res = await fetch(`/jobs/${encodeURIComponent(jobId)}`);
+    if (!res.ok) return null;
+    return await res.json();
+}
+
+async function loadJobs() {
+    const res = await fetch("/jobs");
+    const obj = await res.json();
+
+    const tbody = document.getElementById("jobs_tbody");
+    tbody.innerHTML = "";
+    const jobs = (obj && obj.jobs) ? obj.jobs : [];
+    for (const j of jobs) {
+        const state = await fetchJobState(j.job_id);
+        const candidateCount = state && state.candidate_ids ? state.candidate_ids.length : 0;
+        const status = (state && state.status) ? state.status : "—";
+        const paramsText = fmtParams(state && state.params ? state.params : null);
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+            "<td>" + esc(j.job_id) + "</td>" +
+            "<td>" + esc(j.description || "") + "</td>" +
+            "<td class='text-right'>" + candidateCount + "</td>" +
+            "<td>" + esc(status) + "</td>" +
+            "<td>" + esc(paramsText) + "</td>" +
+            "<td><button type='button' onclick=\"window.location.href='/job.html?job_id="
+            + encodeURIComponent(j.job_id) + "'\">Open</button></td>";
+        tbody.appendChild(tr);
+    }
+}
+
+async function uploadJob() {
+    const fileInput = document.getElementById("job_file");
+    const file = fileInput.files[0];
+    const description = document.getElementById("description").value;
+    if (!file) { alert("please select a PDF"); return; }
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("description", description || "");
+    try {
+        setStatus("Position analysis underway. Please wait...");
+        const res = await fetch("/jobs/upload", {
+            method: "POST",
+            body: formData
+        });
+        if (!res.ok) throw new Error(`/jobs/upload -> ${res.status}`);
+        const obj = await res.json();
+        await loadJobs();
+        fileInput.value = "";
+        document.getElementById("description").value = "";
+        setStatus(`Job uploaded: ${obj.job_id || "completed"}`);
+        document.getElementById("output").textContent = JSON.stringify(obj, null, 2);
+    } catch (err) {
+        setStatus(`Upload failed: ${err.message || err}`, "danger");
+        throw err;
+    }
+}
+
+window.addEventListener("load", loadJobs);
+</script>
+
+</body>
+</html>

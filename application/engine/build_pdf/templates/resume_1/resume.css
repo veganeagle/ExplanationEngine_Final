@@ -1,0 +1,90 @@
+@page {
+  size: Letter;
+  margin: 0.6in;
+  margin-left: 20px;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.1;
+  color: #111;
+  margin: 0;
+  padding: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.text { 
+  white-space: pre-wrap; 
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.name {
+  font-size: 20pt;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.contact {
+  font-size: 10.5pt;
+  color: #333;
+}
+
+.section {
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-size: 12.5pt;
+  font-weight: 700;
+  margin-bottom: 6px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #ccc;
+}
+
+.section-content {
+  font-size: 11pt;
+}
+
+.summary {
+  margin-bottom: 14px;
+}
+
+.summary-text {
+  white-space: pre-wrap;
+}
+
+.item {
+  margin-bottom: 8px;
+}
+
+.item-header {
+  font-weight: 700;
+}
+
+.item-subheader {
+  font-size: 10.5pt;
+  color: #333;
+}
+
+ul {
+  margin: 4px 0 8px 18px;
+  padding: 0;
+}
+
+li {
+  margin-bottom: 3px;
+}
+
+.skills {
+  font-size: 10.8pt;
+}
+
+.small {
+  font-size: 10pt;
+  color: #444;
+}

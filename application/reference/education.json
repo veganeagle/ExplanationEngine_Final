@@ -1,0 +1,29 @@
+{
+  "degrees": [
+      "mba", "emba", "bba", "bcom", "ba", "bsc", "basc", "be", "beng", "bed",
+      "ma", "msc", "Masc", "meng", "mph", "mpp", "mcs", "med", "me", "mdiv",
+      "phd", "md", "jd", "llb", "llm", "dba", "hba","ms","bs","mts",
+      "associate", "associates",
+      "bachelor", "bachelors",
+      "master", "masters",
+      "doctor", "doctorate","Doc",
+      "diploma", "certificate", "certification", "degree"
+  ],
+  "institutions": 
+     [
+      "university", "college", "institute", "school", "polytechnic",
+      "academy", "conservatory", "faculty", "ecole", "universit"
+    ],
+  "gpa":["\\b(?:GPA[:\\s]*([0-4]\\.\\d{1,2})|([0-4]\\.\\d{1,2})\\s*GPA)\\b"],
+
+  "level": {
+    "1": ["certificate", "certification", "diploma"],
+    "2": ["associate", "associates", "bachelor", "bachelors", "degree",
+          "ba", "bsc", "basc", "be", "beng", "bed", "bba", "bcom", "bs", "hba"],
+    "3": ["master", "masters",
+          "ma", "msc", "masc", "meng", "mph", "mpp", "mcs", "med", "me", "mdiv", "ms", "mts",
+          "mba", "emba",
+          "jd", "llb", "llm"],
+    "4": ["phd", "dba", "md", "doctor", "doctorate", "doc"]
+  }
+}

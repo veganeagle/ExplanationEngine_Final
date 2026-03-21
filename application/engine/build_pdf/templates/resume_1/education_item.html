@@ -1,0 +1,25 @@
+{# One education record. Prefer record[] lines if present; else derive from fields. #}
+
+<div class="item">
+  {% set lines = (edu.record if edu and edu.record else []) %}
+
+  {% if lines and (lines|length > 0) %}
+    <div class="item-header">{{ lines[0] }}</div>
+    {% if lines|length > 1 %}
+      <div class="item-subheader">{{ lines[1] }}</div>
+    {% endif %}
+    {% if lines|length > 2 %}
+      <div class="text small">{{ lines[2:] | join(" · ") }}</div>
+    {% endif %}
+  {% else %}
+    {% if edu.institution %}<div class="item-header">{{ edu.institution }}</div>{% endif %}
+    {% if edu.credential %}<div class="item-subheader">{{ edu.credential }}</div>{% endif %}
+
+    {% set meta = [] %}
+    {% if edu.year %}{% set _ = meta.append(edu.year) %}{% endif %}
+    {% if edu.gpa %}{% set _ = meta.append("GPA " ~ edu.gpa) %}{% endif %}
+    {% if meta|length > 0 %}
+      <div class="text small">{{ meta | join(" · ") }}</div>
+    {% endif %}
+  {% endif %}
+</div>

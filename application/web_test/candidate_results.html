@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Candidate Results</title>
+  <link rel="stylesheet" href="/static/styles.css?v=3">
+</head>
+<body>
+  <h1 class="page-title">Job Applicant Explanation Engine</h1>
+  <div class="page-header">
+    <h2>Candidate Results</h2>
+    <button id="backBtn" type="button">← Back</button>
+  </div>
+  <div id="candidateHeader">Loading…</div>
+  <div id="jobHeader">Loading…</div>
+  <div id="analysis">Loading…</div>
+<script>
+
+  function fmt1(x){ return Number.isFinite(x) ? x.toFixed(1) : "—";}
+  function fmt2(x){return Number.isFinite(x) ? x.toFixed(2) : "—";}
+  function fmtPct01(x){if (x == null || Number.isNaN(x)) return "—"; return `${Math.round(x * 100)}%`;}
+  function fmtRank(rank, denom){if (rank == null || denom == null) return "—"; return `${rank}/${denom}`;}
+  function esc(s){return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");}
+
+  const qs = new URLSearchParams(location.search);
+  const jobId = qs.get("job_id");
+  const candidateId = qs.get("candidate_id");
+  const ranker = qs.get("ranker") || "transformer";
+  const $cand = document.getElementById("candidateHeader");
+  const $job = document.getElementById("jobHeader");
+  const $analysis = document.getElementById("analysis");
+  document.getElementById("backBtn").onclick = () => history.back();
+
+  async function fetchJson(url){
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${url} -> ${r.status}`);
+    return await r.json();
+  }
+
+  async function load(){
+    if (!jobId || !candidateId){
+      $cand.innerHTML = `<b>Missing params</b><br>Need job_id and candidate_id in the URL.`;
+      $job.innerHTML = "";
+      $analysis.innerHTML = "";
+      return;
+    }
+    const state = await fetchJson(`/jobs/${encodeURIComponent(jobId)}`);
+    const denom = (state.candidate_ids || []).length;
+    const req = await fetchJson(`/jobs/${encodeURIComponent(jobId)}/requirements`);
+    const jobTitle = req.title || "—";
+    const jobLoc = req.location || "—";
+    const resume = await fetchJson(
+      `/jobs/${encodeURIComponent(jobId)}/candidates/${encodeURIComponent(candidateId)}/resume`);
+    const name = (resume.profile && (resume.profile.name || resume.profile.full_name)) || candidateId;
+
+    $cand.innerHTML =
+      `<b>Candidate</b><br>` +
+      `name: ${esc(name)}<br>` +
+      `candidate_id: ${esc(candidateId)}<br>` +
+      `ranker: ${esc(ranker)}<br>`;
+
+    $job.innerHTML =
+      `<b>Job</b><br>` +
+      `job_id: ${esc(req.job_id || jobId)}<br>` +
+      `title: ${esc(jobTitle)}<br>` +
+      `location: ${esc(jobLoc)}<br>`;
+    const expPayload = await fetchJson(`/jobs/${encodeURIComponent(jobId)}/explanations`);
+    const records = expPayload.explanations || [];
+    const rec = records.find(r => r && r.candidate_id === candidateId && r.ranker === ranker);
+
+    if (!rec){
+      $analysis.innerHTML = `<b>No explanation record found</b><br>candidate_id=${esc(candidateId)} ranker=${esc(ranker)}`;
+      return;
+    }
+
+    const baseNorm = rec.baseline_norm;
+    const baseRank = rec.baseline_rank;
+    const all = rec.factors || [];
+    const atomic = all.filter(f => (f.case_type || "") !== "combined");
+    const combined = all.find(f => (f.case_type || "") === "combined") || null;
+    const factors = atomic.slice().sort((a,b) => (b.delta_norm||0) - (a.delta_norm||0));  
+    const top = factors.length ? factors[0] : null;                                     
+    const topDelta = top ? (top.delta_norm || 0) : 0;
+    const topRank = top ? (baseRank - (top.delta_rank || 0)) : null;
+    const topReason = top ? (top.full_reason || top.short_reason || "—") : "—";
+    const combDelta = combined ? (combined.delta_norm || 0) : 0;                      
+    const combNorm = (baseNorm ?? 0) + combDelta;
+    const lines = [];
+    lines.push(`<b>Analysis</b><br>`);
+    lines.push( `Baseline Score: ${fmt1(baseNorm)} (rank ${esc(fmtRank(baseRank, denom))})<br>` );
+    lines.push(`<br><b>Top reason - the following change had the biggest impact:</b><br>`);
+    lines.push(`${esc(topReason)}<br>`);
+    lines.push(`<br>`);
+    lines.push(`Top factor explains ${esc(fmtPct01(rec.top_factor_explains))} of gap<br>`);
+    lines.push(`All factors explain ${esc(fmtPct01(rec.combined_factor_explains))} of gap<br>`);
+    lines.push(`<br><b>Top factors</b><br>`);
+
+    if (!factors.length){
+      lines.push(`—`);
+    } else {
+      lines.push(`<div class="table-scroll">`);
+      lines.push(`<table>
+        <thead>
+          <tr>
+            <th>Reason</th>
+            <th class="text-right">Δ score</th>
+            <th class="text-right">New rank</th>
+          </tr>
+        </thead>
+        <tbody>`);
+
+      for (const f of factors.slice(0, 8)){
+        const newRank = baseRank - (f.delta_rank || 0);
+        lines.push(`<tr>
+          <td>${esc(f.full_reason || f.short_reason || "")}</td>
+          <td class="text-right">${fmt2(f.delta_norm)}</td>
+          <td class="text-right">${esc(fmtRank(newRank, denom))}</td>
+        </tr>`);
+      }
+      lines.push(`</tbody></table></div>`);
+    }
+    $analysis.innerHTML = lines.join("");
+  }
+
+  load().catch(err => {
+    $analysis.innerHTML = `<b>Error</b><br><pre>${esc(err.stack || err.message || String(err))}</pre>`;
+  });
+</script>
+</body>
+</html>

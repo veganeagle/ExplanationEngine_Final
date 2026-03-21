@@ -1,0 +1,23 @@
+<div class="header">
+  <div class="name">{{ profile.name }}</div>
+
+  {% if profile.location %}
+    <div class="location">{{ profile.location }}</div>
+  {% endif %}
+
+  {% if profile.contact_line %}
+    <div class="contact">{{ profile.contact_line }}</div>
+  {% else %}
+    {% set parts = [] %}
+    {% if profile.email %}{% set _ = parts.append(profile.email) %}{% endif %}
+    {% if profile.phone %}{% set _ = parts.append(profile.phone) %}{% endif %}
+    {% if profile.links %}
+      {% for l in profile.links %}
+        {% if l %}{% set _ = parts.append(l) %}{% endif %}
+      {% endfor %}
+    {% endif %}  
+    {% if parts|length > 0 %}
+      <div class="contact">{{ parts|join(" · ") }}</div>
+    {% endif %}
+  {% endif %}
+</div>

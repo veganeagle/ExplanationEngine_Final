@@ -1,0 +1,45 @@
+
+
+{ 
+    "gender_name_map": {
+        "f2m": ["John", "Michael", "David", "Robert"],
+        "m2f": ["Mary", "Susan", "Jennifer", "Linda"]
+    },
+
+    "gender_token_map": {
+        "m2f": {
+            "he": "she",
+            "him": "her",
+            "his": "her",
+            "man": "woman",
+            "men": "women",
+            "mens": "womens",
+            "boys": "girls",
+            "men's": "women's",
+            "boys'": "girls'",
+            "boy's": "girl's",
+            "father": "mother",
+            "husband": "wife",
+            "son": "daughter"
+
+        },
+        "f2m": {
+            "she": "he",
+            "her": "him",
+            "hers": "his",
+            "woman": "man",
+            "women": "men",
+            "womens": "mens",
+            "girls": "boys",
+            "ladies": "mens",
+            "lady": "man",
+            "ladies'": "men's", 
+            "women's": "men's",
+            "girls'": "boys'",
+            "girl's": "boy's",
+            "mother": "father",
+            "husband": "wife",
+            "son": "daughter"
+        }
+    }
+}

@@ -1,0 +1,37 @@
+<div class="section">
+  <div class="section-title">
+    {% set ttl = (section.label or "").strip() %}
+    {% if ttl %}
+      {{ ttl }}
+    {% else %}
+      {% if section.type == "summary" %}Summary
+      {% elif section.type == "work_experience" %}Experience
+      {% elif section.type == "education" %}Education
+      {% elif section.type == "skills" %}Skills
+      {% elif section.type == "other" %}Other
+      {% else %}{{ section.type }}
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="section-content">
+    {% if section.type in ["skills", "other"] %}
+      {% include "bullets.html" %}
+
+    {% elif section.type == "education" %}
+      {% set items = (section.subsections.education_items if section.subsections and section.subsections.education_items else []) %}
+      {% for edu in items %}
+        {% include "education_item.html" %}
+      {% endfor %}
+
+    {% elif section.type == "work_experience" %}
+      {% set items = (section.subsections.experience_items if section.subsections and section.subsections.experience_items else []) %}
+      {% for w in items %}
+        {% include "work_experience_item.html" %}
+      {% endfor %}
+
+    {% else %}
+      <div class="text">{{ section.text }}</div>
+    {% endif %}
+  </div>
+</div>

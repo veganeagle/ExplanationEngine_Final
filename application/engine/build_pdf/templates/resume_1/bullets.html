@@ -1,0 +1,11 @@
+{% set raw = section.text or "" %}
+{% set lines = raw.split("\n") %}
+
+<ul class="bullets {{ section.type }}">
+  {% for ln in lines %}
+    {% set t = ln.strip() %}
+    {% if t %}
+      <li>{{ t }}</li>
+    {% endif %}
+  {% endfor %}
+</ul>
