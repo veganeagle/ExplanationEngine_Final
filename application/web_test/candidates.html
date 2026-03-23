@@ -21,6 +21,8 @@
                 <tr>
                     <th>candidate_id</th>
                     <th>name</th>
+                    <th>jobs</th>
+                    <th>added</th>
                 </tr>
             </thead>
             <tbody id="candidates_tbody"></tbody>
@@ -44,6 +46,10 @@ function esc(s) {
             .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
+function fmtCell(v) {
+    return esc(v == null || v === "" ? "" : v);
+}
+
 async function loadCandidates() {
     const res = await fetch("/candidates");
     const obj = await res.json();
@@ -54,7 +60,9 @@ async function loadCandidates() {
         const tr = document.createElement("tr");
         tr.innerHTML =
             "<td>" + esc(c.candidate_id) + "</td>" +
-            "<td>" + esc(c.candidate_name) + "</td>";
+            "<td>" + esc(c.candidate_name) + "</td>" + 
+            "<td>" + fmtCell(c.jobs_count ?? 0) + "</td>" +
+            "<td>" + fmtCell(c.added_at) + "</td>";
         tbody.appendChild(tr);
     }
 }

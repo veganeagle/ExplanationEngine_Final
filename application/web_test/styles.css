@@ -148,13 +148,14 @@ label{font-size:var(--fs-sm); color:var(--text-soft);}
   position:sticky;
   top:0;
   z-index:3;
+  background-color:var(--surface-alt);
 }
 
 .table-scroll thead th{
   position:sticky;
   top:0;
   z-index:3;
-  background:var(--surface);
+  background-color:var(--surface-alt);
 }
 button{
   appearance:none;
@@ -200,6 +201,7 @@ thead th{
   font-size:11px;
   font-weight:600;
   text-align:left;
+  background-color: var(--surface-alt);
 }
 th,td{
   padding:8px 10px;

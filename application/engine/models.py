@@ -31,6 +31,8 @@ class Candidate(BaseModel):
     candidate_id: str = Field(..., min_length=1)
     candidate_name: str | None = None    #new
     resume_pdf_path: str = Field(..., min_length=1)  
+    added_at: str | None = None
+    jobs_count: int | None = None
 
 class AddCandidatesRequest(BaseModel):
     resume_pdf_paths: List[str] = Field(..., min_length=1)

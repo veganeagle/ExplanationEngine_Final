@@ -1,12 +1,12 @@
 # candidate_service.py 
 from pathlib import Path
 from fastapi import UploadFile 
-import shutil
+import shutil, time
 from services.text_service import build_resume_json
 from models import (AddCandidatesRequest, Candidate, AttachCandidateRequest, 
                     CandidateList, RemoveCandidateResponse)
 from services.storage_service import (load_candidate_library, add_candidates_to_library,
-                            load_job_state, save_job_state)
+                            load_job_state, save_job_state, load_job_index)
 CANDIDATE_FOLDER = Path(__file__).resolve().parents[3] / "data" / "persistence" / "candidate_uploads"
 
 
@@ -34,14 +34,26 @@ def _add_candidate_service(paths: list[str] | None = None, files: list[UploadFil
         writer(out_path)
         resume_json = build_resume_json(candidate_id, str(out_path))
         candidate_name = (resume_json.get("profile") or {}).get("name")
-        candidates.append(Candidate(candidate_id=candidate_id, candidate_name=candidate_name, resume_pdf_path=str(out_path)))
+        candidates.append(Candidate(candidate_id=candidate_id, candidate_name=candidate_name, 
+                                    resume_pdf_path=str(out_path),added_at=time.strftime("%Y-%m-%d %H:%M:%S")))
         existing_ids.add(candidate_id)
     return add_candidates_to_library(candidates)
+
+def _count_jobs():
+    counts = {}
+    for job in load_job_index().jobs:
+        for cid in load_job_state(job.job_id).candidate_ids:
+            counts[cid] = counts.get(cid, 0) + 1
+    return counts
 
 
 # Candidate Library functions
 def list_candidates():
-    return load_candidate_library()
+    library = load_candidate_library()
+    counts = _count_jobs()
+    for c in library.candidates:
+        c.jobs_count = counts.get(c.candidate_id, 0)
+    return library
 
 def add_candidates(request: AddCandidatesRequest):
     return _add_candidate_service(paths=request.resume_pdf_paths)
