@@ -198,3 +198,20 @@ class ExperimentCase (BaseModel):
     value: str | None = None
     description: str | None = None
 
+
+## new job analyzer
+class JobFactorCase(BaseModel):
+    case_id: str = Field(..., min_length=1)
+    description: str | None = None
+    avg_score_lift: float = 0.0
+    applicant_count_lift: int = 0
+    top1_count: int = 0
+    topN_count: int = 0
+
+class JobFactorsByRanker(BaseModel):
+    ranker: RankerName
+    cases: List[JobFactorCase] = Field(default_factory=list)
+
+class JobFactors(BaseModel):
+    job_id: str
+    rankers: List[JobFactorsByRanker] = Field(default_factory=list)

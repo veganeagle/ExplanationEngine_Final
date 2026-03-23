@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from services.experiment_engine import apply_combined_case
-from models import JobState, RankerName, ExplanationFactor, ExplanationRecord, ExperimentCase
+from models import (JobState, RankerName, ExplanationFactor, ExplanationRecord, 
+                    ExperimentCase, JobFactors, JobFactorsByRanker, JobFactorCase)
 from config import NORM_MAX 
 
 COMBINED_CASE_ID = "99_combined"
@@ -154,3 +155,50 @@ def build_explanation_records(state, top):
     explanations.sort(key=lambda e: (e.ranker or "", e.baseline_rank if e.baseline_rank is not None else 999999))
             
     return explanations
+
+
+# new - job analyzer
+def job_factors(state):
+    def make_bucket(case_id):
+        return {"case_id": case_id, "description": None, "score_lift_sum": 0.0,
+            "applicant_ids_lift": set(), "top1_count": 0,"topN_count": 0}
+
+    by_ranker: dict[str, dict[str, dict]] = {}
+
+    for exp in state.experiments:
+        for row in exp.rows:
+            ranker_map = by_ranker.setdefault(row.ranker, {})
+            case_id = row.case_id
+            if case_id in (VALIDATION_CASE_ID, COMBINED_CASE_ID):
+                continue
+            ranker_map.setdefault(case_id, make_bucket(case_id))
+
+    for rec in state.explanations or []:
+        ranker_map = by_ranker.setdefault(rec.ranker, {})
+        factors = [f for f in rec.factors if f.case_id != COMBINED_CASE_ID]
+        if not factors: continue
+        top_case_id = max(factors, key=lambda f: f.delta_norm).case_id
+        for f in factors:
+            bucket = ranker_map.setdefault(f.case_id, make_bucket(f.case_id))
+            if bucket["description"] is None:
+                desc = f.full_reason or f.short_reason or "unknown"
+                if f.case_type in ("other", "tech", "tools", "vendors"):
+                    lb = desc.find("[")
+                    rb = desc.find("]", lb + 1)
+                    desc = f"added Skill: {desc[lb+1:rb].strip()}"
+                bucket["description"] = desc
+            bucket["score_lift_sum"] += float(f.delta_norm)
+            bucket["applicant_ids_lift"].add(rec.candidate_id)
+            bucket["topN_count"] += 1
+            if f.case_id == top_case_id:  bucket["top1_count"] += 1
+
+    rankers: list[JobFactorsByRanker] = []
+    total_candidates = len(state.candidate_ids) or 1
+    for ranker, case_map in by_ranker.items():
+        cases = [JobFactorCase(case_id=item["case_id"], description=item["description"], avg_score_lift = item["score_lift_sum"] / total_candidates,
+                               applicant_count_lift=len(item["applicant_ids_lift"]), top1_count=item["top1_count"], topN_count=item["topN_count"])
+                 for item in case_map.values()]
+        rankers.append(JobFactorsByRanker(ranker=ranker, cases=cases))
+
+    rankers.sort(key=lambda r: r.ranker)
+    return JobFactors(job_id=state.job.job_id, rankers=rankers)

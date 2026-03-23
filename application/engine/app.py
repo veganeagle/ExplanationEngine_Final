@@ -7,7 +7,8 @@ from pathlib import Path
 from models import ( RankRequest, RankResponse, JobDescription, JobIndex, JobState,
     BaselineRequest, BaselineSummary, SetParamsRequest, GetParamsResponse, DeleteJobResponse,
     CandidateIndex, CandidateList, AttachCandidateRequest,RemoveCandidateResponse, ExplanationRecord,
-    DeleteCandidateResponse, RunExperimentRequest, AddCandidatesRequest, AttachFolderRequest)
+    DeleteCandidateResponse, RunExperimentRequest, AddCandidatesRequest, AttachFolderRequest,
+    JobFactors)
 
 # Service Methods
 from services.ranking_service import RankingService
@@ -18,7 +19,7 @@ from services.candidate_service import (list_candidates, add_candidates, attach_
                                remove_candidate, attach_folder, add_uploaded_candidates)
 from experiment_service import run_experiment_set
 from services.ui_service import build_summary
-from services.explanation_engine import top_rank_cases
+from services.explanation_engine import top_rank_cases, job_factors
 
 app = FastAPI(title="Ranking Engine", version="1.0")
 
@@ -131,6 +132,13 @@ def get_job_explanations_ep(job_id: str):
     state = load_job_state(job_id)
     return { "explanations": state.explanations, "top_rank_cases": top_rank_cases(state)}
 
+#new
+@app.get("/jobs/{job_id}/factors")
+def get_job_factors_ep(job_id: str):
+    state = load_job_state(job_id)
+    return job_factors(state)
+
+
 
 # Gus's Front end - web stuff
 @app.get("/", response_class=HTMLResponse)
@@ -146,6 +154,12 @@ def candidates_page():
 @app.get("/job.html", response_class=HTMLResponse)
 def job_page():
     p = Path(__file__).resolve().parents[1] / "web_test" / "job.html"
+    return p.read_text(encoding="utf-8")
+
+# new
+@app.get("/job_factors.html", response_class=HTMLResponse)
+def job_factors_page():
+    p = Path(__file__).resolve().parents[1] / "web_test" / "job_factors.html"
     return p.read_text(encoding="utf-8")
 
 @app.get("/explanations.html", response_class=HTMLResponse)  # no longer used

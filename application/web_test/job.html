@@ -44,6 +44,19 @@
       <button type="button" onclick="runBaseline()">Run Baseline</button>
       <button type="button" onclick="changeParams()">Experiment Parameters</button>
       <button type="button" onclick="runExperiment()">Run Experiment</button>
+      <button type="button" onclick="openFactorsDialog()">Job Factors</button>
+        <dialog id="factorsDialog">
+          <div class="page-header">
+            <h3>Job Factors</h3>
+            <form method="dialog">
+              <button value="cancel" type="submit">Close</button>
+            </form>
+          </div>
+          <iframe
+            id="factorsFrame"
+            title="Job Factors"
+          ></iframe>
+        </dialog>
       <button type="button" onclick="exportCsv()">Export CSV</button>
     </div>
   </div>
@@ -73,6 +86,8 @@
   const jobId = new URLSearchParams(location.search).get("job_id");
   const attachDialog = document.getElementById("attachDialog");
   const uploadAttachDialog = document.getElementById("uploadAttachDialog");
+  const factorsDialog = document.getElementById("factorsDialog");
+  const factorsFrame = document.getElementById("factorsFrame");
 
   function esc(s) {
     s = (s ?? "").toString();
@@ -83,6 +98,9 @@
   function fmtNum(x, digits = 1) { return Number.isFinite(x) ? Number(x).toFixed(digits) : "";}
   function openAttachDialog() { attachDialog.showModal();}
   function openUploadAttachDialog() { uploadAttachDialog.showModal(); }
+  function openFactorsDialog() {
+    factorsFrame.src = `/job_factors.html?job_id=${encodeURIComponent(jobId)}&ts=${Date.now()}`;
+    factorsDialog.showModal();}
   function csvCell(value) {const s = (value ?? "").toString().replace(/"/g, '""');
     return `"${s}"`;}
 

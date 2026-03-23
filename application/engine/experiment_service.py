@@ -9,7 +9,7 @@ from models import (ExperimentRow, ExperimentRequest, ExperimentSummary, Candida
 from services.storage_service import load_job_state, save_job_state
 from services.experiment_engine import run_experiment
 from build_pdf.build_pdf_service import build_resume_pdf
-from services.explanation_engine import analyze_explanations, build_explanation_records
+from services.explanation_engine import analyze_explanations, build_explanation_records, job_factors
 
 ranking_engine = RankingService()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -180,6 +180,7 @@ def main_experiment_loop(job_id, state,pos_req, case_set,subject_candidate_id: s
             f.write(f"{case.case_id},{desc},{run_id}\n")
         f.write(f"{combined_case_id},combined: top factors,{run_id}\n")
     save_job_state(state) 
+    
 
     return
     

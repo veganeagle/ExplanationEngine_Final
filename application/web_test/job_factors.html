@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Job Factors</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="page-header">
+    <h3 id="title">Job Factors</h3>
+    <div class="small" id="subTitle"></div>
+  </div>
+  <div id="host" class="card card-pad"></div>
+<script>
+  const jobId = new URLSearchParams(location.search).get("job_id");
+  const host = document.getElementById("host");
+  const title = document.getElementById("title");
+  const subTitle = document.getElementById("subTitle");
+  function esc(s) {
+    s = (s ?? "").toString();
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+  function fmtNum(x, digits = 1) { return Number.isFinite(x) ? Number(x).toFixed(digits) : "";}
+
+  function renderRankerTable(rankerBlock) {
+    const ranker = rankerBlock.ranker || "";
+    const cases = Array.isArray(rankerBlock.cases)
+    ? rankerBlock.cases
+        .slice().sort((a, b) => (Number(b.avg_score_lift) || 0) - (Number(a.avg_score_lift) || 0))
+        .slice(0, 5): [];
+    let html = `<h3>${esc(ranker)}</h3>`;
+    html += `<div class="table-scroll">`;
+    html += `<table>
+      <thead>
+        <tr>
+          <th>Case ID</th>
+          <th>Description</th>
+          <th class="text-right">Avg lift</th>
+          <th class="text-right">Applicants helped</th>
+          <th class="text-right">Top 1 count</th>
+          <th class="text-right">Top N count</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    for (const item of cases) {
+      html += `<tr>
+        <td>${esc(item.case_id || "")}</td>
+        <td>${esc(item.description || "")}</td>
+        <td class="text-right">${fmtNum(item.avg_score_lift, 1)}</td>
+        <td class="text-right">${Number.isFinite(item.applicant_count_lift) ? item.applicant_count_lift : ""}</td>
+        <td class="text-right">${Number.isFinite(item.top1_count) ? item.top1_count : ""}</td>
+        <td class="text-right">${Number.isFinite(item.topN_count) ? item.topN_count : ""}</td>
+      </tr>`;
+    }
+
+    if (!cases.length) {html += `<tr><td colspan="6" class="small">No factor data available.</td></tr>`;}
+    html += `</tbody></table></div>`;
+    return html;
+  }
+
+  async function loadFactors() {
+    if (!jobId) {
+      host.innerHTML = `<div class="small">Missing job_id</div>`;
+      return;
+    }
+
+    title.textContent = `Job Factors`;
+    subTitle.textContent = jobId;
+    host.textContent = "Loading…";
+
+    try {
+      const r = await fetch(`/jobs/${encodeURIComponent(jobId)}/factors`);
+      if (!r.ok) {
+        host.innerHTML = `<div class="small">Failed to load factors: HTTP ${r.status}</div>`;
+        return;
+      }
+
+      const data = await r.json();
+      const rankers = Array.isArray(data.rankers) ? data.rankers : [];
+
+      if (!rankers.length) {
+        host.innerHTML = `<div class="small">No factor data available yet. Run experiments first.</div>`;
+        return;
+      }
+
+      host.innerHTML = rankers.map(renderRankerTable).join("");
+    } catch (err) {
+      host.innerHTML = `<div class="small">Failed to load factors: ${esc(err.message || err)}</div>`;
+    }
+  }
+
+  loadFactors();
+</script>
+</body>
+</html>
