@@ -3,16 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <title>Candidate Results</title>
-  <link rel="stylesheet" href="/static/styles.css?v=3">
+  <link rel="stylesheet" href="/static/styles.css?v=5">
 </head>
 <body>
   <h1 class="page-title">Job Applicant Explanation Engine</h1>
   <div class="page-header">
-    <h2>Candidate Results</h2>
+    <h2 style="color:var(--highlight)">Candidate Results</h2>
     <button id="backBtn" type="button">← Back</button>
   </div>
-  <div id="candidateHeader">Loading…</div>
-  <div id="jobHeader">Loading…</div>
+  <div class="header-row">
+    <div id="candidateHeader">Loading…</div>
+    <div id="jobHeader">Loading…</div>
+  </div>
   <div id="analysis">Loading…</div>
 <script>
 
@@ -54,13 +56,13 @@
     const name = (resume.profile && (resume.profile.name || resume.profile.full_name)) || candidateId;
 
     $cand.innerHTML =
-      `<b>Candidate</b><br>` +
+      `<b style="color:var(--highlight)">Candidate</b><br>` +
       `name: ${esc(name)}<br>` +
       `candidate_id: ${esc(candidateId)}<br>` +
       `ranker: ${esc(ranker)}<br>`;
 
     $job.innerHTML =
-      `<b>Job</b><br>` +
+      `<b style="color:var(--highlight)">Job</b><br>` +
       `job_id: ${esc(req.job_id || jobId)}<br>` +
       `title: ${esc(jobTitle)}<br>` +
       `location: ${esc(jobLoc)}<br>`;
@@ -86,14 +88,14 @@
     const combDelta = combined ? (combined.delta_norm || 0) : 0;                      
     const combNorm = (baseNorm ?? 0) + combDelta;
     const lines = [];
-    lines.push(`<b>Analysis</b><br>`);
+    lines.push(`<b style="color:var(--highlight)">Analysis</b><br>`);
     lines.push( `Baseline Score: ${fmt1(baseNorm)} (rank ${esc(fmtRank(baseRank, denom))})<br>` );
-    lines.push(`<br><b>Top reason - the following change had the biggest impact:</b><br>`);
-    lines.push(`${esc(topReason)}<br>`);
+    lines.push(`<br><b style="color:var(--highlight)">Top reason - the following change had the biggest impact:</b><br>`);
+    lines.push(`<span style="color:var(--success)">${esc(topReason)}</span><br>`);    
     lines.push(`<br>`);
     lines.push(`Top factor explains ${esc(fmtPct01(rec.top_factor_explains))} of gap<br>`);
     lines.push(`All factors explain ${esc(fmtPct01(rec.combined_factor_explains))} of gap<br>`);
-    lines.push(`<br><b>Top factors</b><br>`);
+    lines.push(`<br><b style="color:var(--highlight)">Top factors</b><br>`);
 
     if (!factors.length){
       lines.push(`—`);

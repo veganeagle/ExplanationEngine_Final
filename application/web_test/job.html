@@ -13,7 +13,7 @@
     <button type="button" onclick="location.href='/'">← Back to Jobs</button>
   </div>
   <div class="page-header">
-    <h3>Summary</h3>
+    <h3 style="color:var(--highlight)">Summary</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button type="button" onclick="openAttachDialog()">Attach Candidates</button>
         <dialog id="attachDialog">
@@ -130,7 +130,7 @@
     const nCands = (jobJson.candidate_ids || []).length;
     const title = job.description || job.job_id || "";
     document.getElementById("jobSummary").innerHTML =
-      `<b>${esc(title)}</b><br>` +
+      `<b style="color:var(--highlight)">${esc(title)}</b><br>` +
       `status: ${esc(status)}<br>` +
       `candidates: ${nCands}`;
     let reqJson = null;
@@ -208,8 +208,7 @@
 
   
   function renderExplanationsTable(title, records) {
-    let html = `<h4>${esc(title)}</h4>`;
-    html += `<div class="table-scroll">`;
+    let html =  `<div class="table-scroll">`;
     html += `<table>
       <thead>
         <tr>
@@ -326,7 +325,7 @@
         rows.push({candidate_id: candidateId, ranker, baseline_norm: null,
           baseline_rank: null, validation_delta_norm: null, factors: []});
       }
-      allHtml += `<h3>${esc(ranker || "Results")}</h3>`;
+      allHtml += `<h3 style="color:var(--highlight)">Ranking Model: ${esc(ranker || "Results")}</h3>`;
       allHtml += renderExplanationsTable("Results", rows);
     }
     host.innerHTML = allHtml || "Please attach candidates and run baseline";
