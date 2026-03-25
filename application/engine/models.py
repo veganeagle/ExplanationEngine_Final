@@ -5,7 +5,7 @@ from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 
 # literals
-RankerName = Literal["tfidf", "bm25", "transformer", "llm"]
+RankerName = Literal["tfidf", "bm25", "transformer", "chunk"]
 JobStatus = Literal["draft", "ready", "baselined", "running", "complete"]
 CaseType = Literal["validation","education", "position", "skills", "tools", "vendors", "location", "tech", "gender", "other", "combined"]
 CaseOp = Literal["add", "change", "remove", "combined"]

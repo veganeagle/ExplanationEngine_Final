@@ -2,7 +2,7 @@ from models import RankerName
 NORM_MIN = 0.0
 NORM_MAX = 100.0
 
-ALL_RANKERS: list[RankerName] = ["tfidf","bm25", "transformer"] ## can add , "llm" but its very slow.["tfidf", "bm25", "transformer"]
+ALL_RANKERS: list[RankerName] = ["tfidf","bm25", "transformer", "chunk"] ## can add , "llm" but its very slow.["tfidf", "bm25", "transformer"]
 DEFAULT_ITERATIONS = 20
 DEFAULT_RANKER = ["transformer"]
 

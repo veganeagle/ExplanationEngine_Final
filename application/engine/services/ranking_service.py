@@ -6,6 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 
+from services.text_service import load_headings, profile, section_parse, normalize_line  # to simulate a proper model
 from models import RankRequest, RankResponse, CandidateOut, RankerName
 
 class RankingService:
@@ -28,6 +29,10 @@ class RankingService:
         if ranker == "transformer":
             print("Running Sentence Transformer Embeddings")
             return self._sentence_transformer_ranker(req)
+
+        if ranker == "chunk":
+            print("Running Chunked Transformer Embeddings")
+            return self._chunk_ranker(req)
         raise ValueError(f"Unsupported ranker: {ranker}")
 
 
@@ -68,7 +73,7 @@ class RankingService:
     def _sentence_transformer_ranker(self, req: RankRequest) -> RankResponse:
         job_text, cand_ids, case_ids, resumes, _ = self._prepare_inputs(req)
         if self._transformer_model is None:
-            self._transformer_model = SentenceTransformer("intfloat/e5-small-v2")
+            self._transformer_model = SentenceTransformer("intfloat/e5-base-v2")
         model = self._transformer_model
         E = model.encode([f"passage: {r}" for r in resumes], normalize_embeddings=True)
         jd = model.encode([f"query: {job_text}"], normalize_embeddings=True)[0]
@@ -87,3 +92,57 @@ class RankingService:
         m = re.search(r"(-?\d+(?:\.\d+)?)", text)
         if not m: raise ValueError(f"LLM returned no numeric score. Raw: {text[:200]}")
         return float(m.group(1))
+
+    # improve sentence transformer
+    def _chunk_jd(self, job_lines):
+        jd_chunks, chunk = [], []
+        for raw_line in job_lines:
+            line = normalize_line(raw_line)
+            chunk_end = not line or line.endswith(":") or len(chunk) >= 4
+            if chunk_end and chunk:
+                jd_chunks.append("\n".join(chunk))
+                chunk = []
+            if line: chunk.append(line)
+        if chunk: jd_chunks.append("\n".join(chunk))
+        return jd_chunks or ["\n".join(job_lines)]
+
+
+    def _chunk_ranker(self, req: RankRequest) -> RankResponse:
+        _, cand_ids, case_ids, _, _ = self._prepare_inputs(req)
+        if self._transformer_model is None:
+            self._transformer_model = SentenceTransformer("intfloat/e5-base-v2")
+        model = self._transformer_model
+        headings = load_headings()
+        score_all_flag = req.run_id.startswith("base") or req.candidates[0].case_id == "0_validation"
+        candidates = req.candidates if score_all_flag else req.candidates[:1]
+        cand_ids = [c.candidate_id for c in candidates]
+        case_ids = [c.case_id for c in candidates]
+        job_chunks = self._chunk_jd(req.job.job_lines)
+        jd_E = model.encode([f"query: {t}" for t in job_chunks], normalize_embeddings=True)
+
+        scores = []
+        for candidate_scored in candidates: 
+            lines = [line for line in candidate_scored.resume_lines if line and line.strip()]
+            _, _, _, _, profile_end, used_idx = profile(lines, headings)
+            profile_text = "\n".join(
+                lines[i] for i in range(1, min(profile_end + 1, len(lines))) if i not in used_idx
+            ).strip()
+            sections = section_parse(lines, profile_end + 1, headings, profile_text=profile_text)
+            texts = [s["text"] for s in sections if s.get("text")]
+            if not texts:
+                scores.append (0.0)
+                continue
+            sec_E = model.encode([f"passage: {t}" for t in texts], normalize_embeddings=True)
+            sims = sec_E @ jd_E.T
+#            sec_scores = sims.max(axis=1)
+#            best_idx = sims.argmax(axis=1)
+            chunk_scores = sims.max(axis=0)   # one score per JD chunk
+            vals = sorted(chunk_scores, reverse=True)
+            top2 = vals[:2]
+            rest = vals[2:]
+            score = sum(top2) + (sum(rest) / len(rest) if rest else 0.0)
+            print(
+                f"{candidate_scored.candidate_id} | score ={score:.3f} | " +
+                ", ".join(f"[j{i}]: {float(chunk_scores[i]):.3f}" for i in range(len(chunk_scores))) )
+            scores.append(score)        
+        return self._wrap_output(req, cand_ids, case_ids, scores)

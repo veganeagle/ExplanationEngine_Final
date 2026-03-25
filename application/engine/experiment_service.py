@@ -61,7 +61,7 @@ def build_case_set(pos_req, iterations: int):
 
     # 3 Education - bump up credentials
     education = requirements.get("education", {}) 
-    if education.get("level", 0) > 0:
+    if (education.get("level") or 0) > 0:
         edu = education.get("credential")
         add_case ("education", "education_items", edu, f"If resume highest education level is less than {edu}, add to resume")
     
